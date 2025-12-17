@@ -1,0 +1,105 @@
+
+package com.demo.inventory.controller;
+
+import com.demo.inventory.model.Company;
+import com.demo.inventory.service.CompanyService;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/companies")
+public class CompanyController {
+
+    private final CompanyService companyService;
+
+    public CompanyController(CompanyService companyService) {
+        this.companyService = companyService;
+    }
+
+    // ================= PUBLIC =================
+
+    /**
+     * Public company registration
+     * Used by Landing Page / Register page
+     */
+    @PostMapping("/register")
+    public ResponseEntity<?> registerCompany(@RequestBody Map<String, String> body) {
+
+        String name = body.get("name");
+        String email = body.get("email");
+        String password = body.get("password");
+
+        if (name == null || email == null || password == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "name, email and password are required"));
+        }
+
+        Company company = companyService.register(name, email, password);
+        return ResponseEntity.ok(company);
+    }
+
+    // ================= ADMIN ONLY =================
+
+    /**
+     * Get all companies (Admin only)
+     * Used by CompaniesList & Admin Dashboard
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Company> getAllCompanies() {
+        return companyService.getAllCompanies();
+    }
+
+    /**
+     * Activate / Deactivate company
+     * Admin only
+     */
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateCompanyStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body) {
+
+        Boolean active = body.get("active");
+        if (active == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "active field required"));
+        }
+
+        Company updated = companyService.updateStatus(id, active);
+        return ResponseEntity.ok(updated);
+    }
+
+    // ================= COMPANY ONLY =================
+
+    /**
+     * Get own company profile
+     * Used by Profile page
+     */
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('COMPANY')")
+    public Company getMyCompany(Authentication authentication) {
+
+        String username = authentication.getName();
+        return companyService.getCompanyByUsername(username);
+    }
+
+    /**
+     * Update own company details
+     */
+    @PutMapping("/me")
+    @PreAuthorize("hasRole('COMPANY')")
+    public Company updateMyCompany(
+            Authentication authentication,
+            @RequestBody Company company) {
+
+        String username = authentication.getName();
+        return companyService.updateCompany(username, company);
+    }
+}

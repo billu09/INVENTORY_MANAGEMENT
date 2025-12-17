@@ -1,0 +1,78 @@
+package com.demo.inventory.service.impl;
+
+import com.demo.inventory.model.Company;
+import com.demo.inventory.repository.CompanyRepository;
+import com.demo.inventory.service.CompanyService;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class CompanyServiceImpl implements CompanyService {
+
+    private final CompanyRepository companyRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public CompanyServiceImpl(
+            CompanyRepository companyRepository,
+            PasswordEncoder passwordEncoder) {
+
+        this.companyRepository = companyRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    // ================= REGISTER =================
+    @Override
+    public Company register(String name, String email, String password) {
+
+        if (companyRepository.existsByEmail(email)) {
+            throw new RuntimeException("Company already registered with this email");
+        }
+
+        Company company = new Company();
+        company.setName(name);
+        company.setEmail(email);
+        company.setPassword(passwordEncoder.encode(password));
+        company.setRole("ROLE_COMPANY");
+        company.setActive(true);
+
+        return companyRepository.save(company);
+    }
+
+    // ================= ADMIN =================
+    @Override
+    public List<Company> getAllCompanies() {
+        return companyRepository.findAll();
+    }
+
+    @Override
+    public Company updateStatus(Long id, boolean active) {
+
+        Company company = companyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+
+        company.setActive(active);
+        return companyRepository.save(company);
+    }
+
+    // ================= COMPANY =================
+    @Override
+    public Company getCompanyByUsername(String username) {
+
+        return companyRepository.findByEmail(username)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+    }
+
+    @Override
+    public Company updateCompany(String username, Company updatedCompany) {
+
+        Company company = getCompanyByUsername(username);
+
+        company.setName(updatedCompany.getName());
+        company.setEmail(updatedCompany.getEmail());
+
+        return companyRepository.save(company);
+    }
+}

@@ -1,0 +1,403 @@
+package com.demo.inventory.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+
+    public JwtAuthFilter(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String header = request.getHeader("Authorization");
+
+        // If no Authorization header or not Bearer, continue anonymously
+        if (header == null || !header.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String token = header.substring(7);
+
+        try {
+            // Validate token
+            if (!jwtUtil.validateToken(token)) {
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // Extract data from token
+            String username = jwtUtil.getUsernameFromToken(token);
+            String role = jwtUtil.getRoleFromToken(token);
+
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                // Ensure role has ROLE_ prefix
+                String normalizedRole = role.startsWith("ROLE_")
+                        ? role
+                        : "ROLE_" + role;
+
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                List.of(new SimpleGrantedAuthority(normalizedRole))
+                        );
+
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
+
+        } catch (Exception ex) {
+            SecurityContextHolder.clearContext();
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//package com.demo.inventory.security;
+//
+//import org.springframework.web.filter.OncePerRequestFilter;
+//import jakarta.servlet.http.HttpServletRequest;
+//import jakarta.servlet.http.HttpServletResponse;
+//import jakarta.servlet.FilterChain;
+//import java.io.IOException;
+//
+//public class JwtAuthFilter extends OncePerRequestFilter {
+//    private final JwtUtil jwtUtil;
+//
+//    public JwtAuthFilter(JwtUtil jwtUtil) {
+//        this.jwtUtil = jwtUtil;
+//    }
+//
+//    @Override
+//    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+//        throws IOException, jakarta.servlet.ServletException {
+//        // extract Authorization header, validate token, set SecurityContext...
+//        chain.doFilter(request, response);
+//    }
+//}
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+////package com.demo.inventory.security;
+////
+////import com.demo.inventory.service.AuthService;
+////import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+////import org.springframework.security.core.context.SecurityContextHolder;
+////import org.springframework.security.core.authority.SimpleGrantedAuthority;
+////import org.springframework.web.filter.OncePerRequestFilter;
+////import jakarta.servlet.FilterChain;
+////import jakarta.servlet.ServletException;
+////import jakarta.servlet.http.HttpServletRequest;
+////import jakarta.servlet.http.HttpServletResponse;
+////
+////import java.io.IOException;
+////import java.util.List;
+////
+////public class JwtAuthFilter extends OncePerRequestFilter {
+////
+////    private final JwtUtil jwtUtil;
+////    private final AuthService authService;
+////
+////    public JwtAuthFilter(JwtUtil jwtUtil, AuthService authService) {
+////        this.jwtUtil = jwtUtil;
+////        this.authService = authService;
+////    }
+////
+////    @Override
+////    protected void doFilterInternal(HttpServletRequest request,
+////                                    HttpServletResponse response,
+////                                    FilterChain filterChain) throws ServletException, IOException {
+////
+////        String header = request.getHeader("Authorization");
+////        if (header != null && header.startsWith("Bearer ")) {
+////            String token = header.substring(7);
+////            if (jwtUtil.validateToken(token)) {
+////                String username = jwtUtil.getUsernameFromToken(token);
+////                String role = jwtUtil.getRoleFromToken(token);
+////                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+////                        username,
+////                        null,
+////                        List.of(new SimpleGrantedAuthority(role))
+////                );
+////                SecurityContextHolder.getContext().setAuthentication(auth);
+////            }
+////        }
+////        filterChain.doFilter(request, response);
+////    }
+////}
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+////
+//////package com.demo.inventory.security;
+//////
+//////import jakarta.servlet.FilterChain;
+//////import jakarta.servlet.ServletException;
+//////import jakarta.servlet.http.HttpServletRequest;
+//////import jakarta.servlet.http.HttpServletResponse;
+//////import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+//////import org.springframework.security.core.authority.SimpleGrantedAuthority;
+//////import org.springframework.security.core.context.SecurityContextHolder;
+//////import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+//////import org.springframework.web.filter.OncePerRequestFilter;
+//////
+//////import java.io.IOException;
+//////import java.util.List;
+//////import java.util.logging.Level;
+//////import java.util.logging.Logger;
+//////
+//////public class JwtAuthFilter extends OncePerRequestFilter {
+//////    private static final Logger LOG = Logger.getLogger(JwtAuthFilter.class.getName());
+//////
+//////    private final JwtUtil jwtUtil;
+//////
+//////    public JwtAuthFilter(JwtUtil jwtUtil) {
+//////        this.jwtUtil = jwtUtil;
+//////    }
+//////
+//////    @Override
+//////    protected void doFilterInternal(HttpServletRequest req,
+//////                                    HttpServletResponse res,
+//////                                    FilterChain chain) throws ServletException, IOException {
+//////        try {
+//////            String header = req.getHeader("Authorization");
+//////            if (header == null || header.isBlank() || !header.trim().toLowerCase().startsWith("bearer ")) {
+//////                // no token -> continue anonymously
+//////                if (LOG.isLoggable(Level.FINE)) LOG.fine("No Authorization header, continuing anonymously for " + req.getRequestURI());
+//////                chain.doFilter(req, res);
+//////                return;
+//////            }
+//////
+//////            String token = header.trim().substring(7).trim();
+//////            // mask token in logs (show only first/last 6 chars)
+//////            String masked = token.length() > 12 ? token.substring(0,6) + "..." + token.substring(token.length()-6) : "****";
+//////
+//////            if (!jwtUtil.validateToken(token)) {
+//////                LOG.info("JWT invalid/expired for request " + req.getRequestURI() + " token=" + masked);
+//////                SecurityContextHolder.clearContext();
+//////                chain.doFilter(req, res);
+//////                return;
+//////            }
+//////
+//////            String username = jwtUtil.getUsername(token);
+//////            String role = jwtUtil.getRole(token);
+//////
+//////            if (username == null || username.isBlank()) {
+//////                LOG.warning("JWT has no username, clearing context for token=" + masked);
+//////                SecurityContextHolder.clearContext();
+//////                chain.doFilter(req, res);
+//////                return;
+//////            }
+//////
+//////            String normalizedRole = normalizeRole(role);
+//////            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+//////                    username,
+//////                    null,
+//////                    List.of(new SimpleGrantedAuthority(normalizedRole))
+//////            );
+//////
+//////            // include request details (helpful for downstream checks/logging)
+//////            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
+//////            SecurityContextHolder.getContext().setAuthentication(auth);
+//////
+//////            LOG.fine("Authenticated user='" + username + "' role='" + normalizedRole + "' for " + req.getRequestURI());
+//////        } catch (Exception ex) {
+//////            LOG.log(Level.WARNING, "JWT processing failed: " + ex.getClass().getSimpleName() + " - " + ex.getMessage(), ex);
+//////            SecurityContextHolder.clearContext();
+//////        }
+//////
+//////        chain.doFilter(req, res);
+//////    }
+//////
+//////    private String normalizeRole(String role) {
+//////        if (role == null || role.isBlank()) return "ROLE_USER";
+//////        String r = role.trim();
+//////        if (!r.toUpperCase().startsWith("ROLE_")) r = "ROLE_" + r.toUpperCase();
+//////        return r;
+//////    }
+//////
+//////    // OPTIONAL: skip filtering for specific paths (e.g. public auth endpoints).
+//////    // Uncomment and adjust paths if you want the filter to ignore them entirely.
+//////    /*
+//////    @Override
+//////    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+//////        String path = request.getRequestURI();
+//////        // skip filter for auth endpoints and static resources
+//////        return path.startsWith("/api/auth/") || path.startsWith("/api/public/") || path.startsWith("/h2-console/");
+//////    }
+//////    */
+//////}
+//////
+//////
+//////
+//////
+////////package com.demo.inventory.security;
+////////
+////////import jakarta.servlet.FilterChain;
+////////import jakarta.servlet.ServletException;
+////////import jakarta.servlet.http.HttpServletRequest;
+////////import jakarta.servlet.http.HttpServletResponse;
+////////import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+////////import org.springframework.security.core.authority.SimpleGrantedAuthority;
+////////import org.springframework.security.core.context.SecurityContextHolder;
+////////import org.springframework.web.filter.OncePerRequestFilter;
+////////
+////////import java.io.IOException;
+////////import java.util.List;
+////////import java.util.logging.Level;
+////////import java.util.logging.Logger;
+////////
+////////public class JwtAuthFilter extends OncePerRequestFilter {
+////////    private static final Logger LOG = Logger.getLogger(JwtAuthFilter.class.getName());
+////////
+////////    private final JwtUtil jwtUtil;
+////////
+////////    public JwtAuthFilter(JwtUtil jwtUtil) {
+////////        this.jwtUtil = jwtUtil;
+////////    }
+////////
+////////    @Override
+////////    protected void doFilterInternal(HttpServletRequest req,
+////////                                    HttpServletResponse res,
+////////                                    FilterChain chain) throws ServletException, IOException {
+////////        String header = req.getHeader("Authorization");
+////////
+////////        if (header == null || header.isBlank() || !header.trim().toLowerCase().startsWith("bearer ")) {
+////////            chain.doFilter(req, res);
+////////            return;
+////////        }
+////////
+////////        String token = header.trim().substring(7).trim();
+////////
+////////        try {
+////////            if (!jwtUtil.validateToken(token)) {
+////////                SecurityContextHolder.clearContext();
+////////                chain.doFilter(req, res);
+////////                return;
+////////            }
+////////
+////////            String username = jwtUtil.getUsername(token);
+////////            String role = jwtUtil.getRole(token);
+////////
+////////            if (username == null || username.isBlank()) {
+////////                SecurityContextHolder.clearContext();
+////////                chain.doFilter(req, res);
+////////                return;
+////////            }
+////////
+////////            // ensure role follows Spring convention
+////////            String normalizedRole = normalizeRole(role);
+////////
+////////            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+////////                    username,
+////////                    null,
+////////                    List.of(new SimpleGrantedAuthority(normalizedRole))
+////////            );
+////////
+////////            SecurityContextHolder.getContext().setAuthentication(auth);
+////////        } catch (Exception ex) {
+////////            LOG.log(Level.WARNING, "JWT processing failed: " + ex.getClass().getSimpleName() + " - " + ex.getMessage(), ex);
+////////            SecurityContextHolder.clearContext();
+////////        }
+////////
+////////        chain.doFilter(req, res);
+////////    }
+////////
+////////    private String normalizeRole(String role) {
+////////        if (role == null || role.isBlank()) return "ROLE_USER";
+////////        String r = role.trim();
+////////        if (!r.toUpperCase().startsWith("ROLE_")) r = "ROLE_" + r.toUpperCase();
+////////        return r;
+////////    }
+////////}

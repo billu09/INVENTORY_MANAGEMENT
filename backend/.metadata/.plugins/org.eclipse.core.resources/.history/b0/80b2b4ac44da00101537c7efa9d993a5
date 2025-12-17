@@ -1,0 +1,5 @@
+package com.demo.inventory.repository;
+
+public class CompanyRepository {
+
+}

@@ -1,0 +1,352 @@
+package com.demo.inventory.controller;
+
+import com.demo.inventory.model.User;
+import com.demo.inventory.service.AuthService;
+import com.demo.inventory.security.JwtUtil;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final AuthService authService;
+    private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthController(
+            AuthService authService,
+            JwtUtil jwtUtil,
+            PasswordEncoder passwordEncoder) {
+
+        this.authService = authService;
+        this.jwtUtil = jwtUtil;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    // ================= LOGIN =================
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+
+        String username = body.get("username");
+        String password = body.get("password");
+
+        if (username == null || password == null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("error", "username and password required"));
+        }
+
+        User user = authService.findByUsername(username);
+        if (user == null) {
+            return ResponseEntity
+                    .status(401)
+                    .body(Map.of("error", "invalid credentials"));
+        }
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            return ResponseEntity
+                    .status(401)
+                    .body(Map.of("error", "invalid credentials"));
+        }
+
+        // JWT contains ROLE_*
+        String token = jwtUtil.generateToken(
+                user.getUsername(),
+                user.getRole()
+        );
+
+        // FRONTEND FRIENDLY RESPONSE
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", user.getId());
+        response.put("name", user.getName());
+        response.put("username", user.getUsername());
+
+        // 🔴 IMPORTANT: strip ROLE_ for frontend
+        response.put(
+                "role",
+                user.getRole().replace("ROLE_", "").toLowerCase()
+        );
+
+        response.put("token", token);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ================= REGISTER COMPANY =================
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+
+        String name = body.get("name");
+        String username = body.get("username");
+        String password = body.get("password");
+
+        if (name == null || username == null || password == null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("error", "name, username and password required"));
+        }
+
+        try {
+            User user = authService.registerCompany(
+                    name,
+                    username,
+                    password
+            );
+
+            String token = jwtUtil.generateToken(
+                    user.getUsername(),
+                    user.getRole()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", user.getId());
+            response.put("name", user.getName());
+            response.put("username", user.getUsername());
+
+            // 🔴 IMPORTANT: strip ROLE_
+            response.put(
+                    "role",
+                    user.getRole().replace("ROLE_", "").toLowerCase()
+            );
+
+            response.put("token", token);
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException ex) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//package com.demo.inventory.controller;
+//
+//import com.demo.inventory.model.User;
+//import com.demo.inventory.service.AuthService;
+//import com.demo.inventory.security.JwtUtil;
+//import org.springframework.http.ResponseEntity;
+//import org.springframework.security.crypto.password.PasswordEncoder;
+//import org.springframework.web.bind.annotation.*;
+//
+//import java.util.Map;
+//
+//@RestController
+//@RequestMapping("/api/auth")
+//public class AuthController {
+//    private final AuthService authService;
+//    private final JwtUtil jwtUtil;
+//    private final PasswordEncoder passwordEncoder;
+//
+//    public AuthController(AuthService authService, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
+//        this.authService = authService;
+//        this.jwtUtil = jwtUtil;
+//        this.passwordEncoder = passwordEncoder;
+//    }
+//
+//    @PostMapping("/login")
+//    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+//        String username = body.get("username");
+//        String password = body.get("password");
+//        if (username == null || password == null) {
+//            return ResponseEntity.badRequest().body(Map.of("error", "username and password required"));
+//        }
+//        User user = authService.findByUsername(username);
+//        if (user == null) {
+//            return ResponseEntity.status(401).body(Map.of("error", "invalid credentials"));
+//        }
+//        boolean matches = passwordEncoder.matches(password, user.getPassword());
+//        if (!matches) {
+//            return ResponseEntity.status(401).body(Map.of("error", "invalid credentials"));
+//        }
+//        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+//        return ResponseEntity.ok(Map.of(
+//            "id", user.getId(),
+//            "name", user.getName(),
+//            "username", user.getUsername(),
+//            "role", user.getRole(),
+//            "token", token
+//        ));
+//    }
+//
+//    @PostMapping("/register")
+//    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+//        String name = body.get("name");
+//        String username = body.get("username");
+//        String password = body.get("password");
+//        if (name == null || username == null || password == null) {
+//            return ResponseEntity.badRequest().body(Map.of("error", "name, username and password required"));
+//        }
+//        try {
+//            User u = authService.registerCompany(name, username, password);
+//            String token = jwtUtil.generateToken(u.getUsername(), u.getRole());
+//            return ResponseEntity.ok(Map.of(
+//                "id", u.getId(),
+//                "name", u.getName(),
+//                "username", u.getUsername(),
+//                "role", u.getRole(),
+//                "token", token
+//            ));
+//        } catch (RuntimeException ex) {
+//            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+//        }
+//    }
+//}
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+////package com.demo.inventory.controller;
+////
+////import com.demo.inventory.model.User;
+////import com.demo.inventory.service.AuthService;
+////import com.demo.inventory.security.JwtUtil;
+////import org.springframework.http.ResponseEntity;
+////import org.springframework.security.crypto.password.PasswordEncoder;
+////import org.springframework.web.bind.annotation.*;
+////
+////import java.util.Map;
+////
+////@RestController
+////@RequestMapping("/api/auth")
+////public class AuthController {
+////    private final AuthService authService;
+////    private final JwtUtil jwtUtil;
+////    private final PasswordEncoder passwordEncoder;
+////
+////    public AuthController(AuthService authService, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
+////        this.authService = authService;
+////        this.jwtUtil = jwtUtil;
+////        this.passwordEncoder = passwordEncoder;
+////    }
+////    
+////
+//////    @PostMapping("/register")
+//////    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+//////        String name = body.get("name");
+//////        String username = body.get("username");
+//////        String password = body.get("password");
+//////        if (name == null || username == null || password == null) {
+//////            return ResponseEntity.badRequest().body("name, username and password required");
+//////        }
+//////        try {
+//////            User u = authService.registerCompany(name, username, password);
+//////            return ResponseEntity.ok(Map.of("id", u.getId(), "username", u.getUsername()));
+//////        } catch (RuntimeException ex) {
+//////            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+//////        }
+//////    }
+////    
+////    @PostMapping("/login")
+////    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+////        String username = body.get("username");
+////        String password = body.get("password");
+////        System.out.println("LOGIN attempt for: '" + username + "'");
+////
+////        User user = authService.findByUsername(username);
+////        if (user == null) {
+////            System.out.println(" -> user not found");
+////            return ResponseEntity.status(401).body("invalid credentials");
+////        }
+////
+////        System.out.println(" -> stored hash: " + user.getPassword());
+////        boolean matches = passwordEncoder.matches(password, user.getPassword());
+////        System.out.println(" -> password matches? " + matches);
+////
+////        if (!matches) return ResponseEntity.status(401).body("invalid credentials");
+////
+////        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+////        System.out.println(" -> issuing token for: " + user.getUsername());
+////        return ResponseEntity.ok(Map.of("token", token));
+////    }
+////
+////
+//////    @PostMapping("/login")
+//////    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+//////        String username = body.get("username");
+//////        String password = body.get("password");
+//////        if (username == null || password == null) {
+//////            return ResponseEntity.badRequest().body("username and password required");
+//////        }
+//////
+//////        User user = authService.findByUsername(username);
+//////        if (user == null) return ResponseEntity.status(401).body("invalid credentials");
+//////
+//////        if (!passwordEncoder.matches(password, user.getPassword())) {
+//////            return ResponseEntity.status(401).body("invalid credentials");
+//////        }
+//////
+//////        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+//////        return ResponseEntity.ok(Map.of("token", token));
+//////    }
+////    
+////    
+////    
+////    
+//// // add inside AuthController
+////    @PostMapping("/company/signup")
+////    public ResponseEntity<?> registerCompany(@RequestBody Map<String, String> body) {
+////        // delegate to the same register method so logic stays in one place
+////        return register(body);
+////    }
+////
+////    
+////    @PostMapping("/register")
+////    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+////        System.out.println("ENTER register() with body: " + body);
+////        String name = body.get("name");
+////        String username = body.get("username");
+////        String password = body.get("password");
+////        if (name == null || username == null || password == null) {
+////            return ResponseEntity
+////                .badRequest()
+////                .body(Map.of("error", "name, username and password required"));
+////        }
+////        try {
+////            User u = authService.registerCompany(name, username, password);
+////            return ResponseEntity.ok(Map.of("id", u.getId(), "username", u.getUsername()));
+////        } catch (RuntimeException ex) {
+////            ex.printStackTrace();
+////            return ResponseEntity
+////                .badRequest()
+////                .body(Map.of("error", ex.getMessage()));
+////        }
+////    }
+////
+////
+////    
+////}

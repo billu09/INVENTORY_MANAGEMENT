@@ -1,0 +1,113 @@
+package com.demo.inventory.controller;
+
+import com.demo.inventory.model.User;
+import com.demo.inventory.repository.UserRepository;
+import com.demo.inventory.service.CompanyService;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/admin")
+@PreAuthorize("hasRole('ADMIN')")
+public class AdminController {
+
+    private final UserRepository userRepository;
+    private final CompanyService companyService;
+
+    public AdminController(
+            UserRepository userRepository,
+            CompanyService companyService) {
+
+        this.userRepository = userRepository;
+        this.companyService = companyService;
+    }
+
+    // ================= DASHBOARD =================
+
+    /**
+     * Admin dashboard summary
+     * Used by Dashboard.jsx (admin view)
+     */
+    @GetMapping("/dashboard")
+    public Map<String, Object> getAdminDashboard() {
+
+        List<User> companies = userRepository.findByRole("ROLE_COMPANY");
+
+        long totalCompanies = companies.size();
+        long activeCompanies = companies.stream()
+                .filter(User::isActive)
+                .count();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("totalCompanies", totalCompanies);
+        response.put("activeCompanies", activeCompanies);
+
+        return response;
+    }
+
+    // ================= COMPANIES =================
+
+    /**
+     * Get all companies (Admin only)
+     * Used by CompaniesList.jsx
+     */
+    @GetMapping("/companies")
+    public List<User> getAllCompanies() {
+        return companyService.getAllCompanies();
+    }
+
+    /**
+     * Activate / Deactivate a company
+     * Used by admin toggle
+     */
+    @PatchMapping("/companies/{id}/status")
+    public User updateCompanyStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body) {
+
+        Boolean active = body.get("active");
+        if (active == null) {
+            throw new RuntimeException("active field is required");
+        }
+
+        return companyService.updateStatus(id, active);
+    }
+
+    // ================= USERS (OPTIONAL) =================
+
+    /**
+     * Get all users (admin utility)
+     */
+    @GetMapping("/users")
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // ================= ACTIVITY LOGS =================
+
+    /**
+     * Activity logs (placeholder)
+     * Used by ActivityLogs.jsx
+     */
+    @GetMapping("/activity-logs")
+    public List<Map<String, Object>> getActivityLogs() {
+
+        return List.of(
+            Map.of(
+                "action", "COMPANY_REGISTERED",
+                "performedBy", "system",
+                "timestamp", "2025-01-01T10:00:00"
+            ),
+            Map.of(
+                "action", "COMPANY_ACTIVATED",
+                "performedBy", "admin",
+                "timestamp", "2025-01-02T12:30:00"
+            )
+        );
+    }
+}

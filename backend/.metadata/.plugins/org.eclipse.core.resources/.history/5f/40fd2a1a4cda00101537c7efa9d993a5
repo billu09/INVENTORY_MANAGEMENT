@@ -1,0 +1,5 @@
+package com.demo.inventory.service.impl;
+
+public class CompanyServiceImpl {
+
+}

@@ -1,0 +1,18 @@
+package com.demo.inventory.service;
+
+import com.demo.inventory.model.Company;
+
+import java.util.List;
+
+public interface CompanyService {
+
+    Company register(String name, String email, String password);
+
+    List<Company> getAllCompanies();
+
+    Company updateStatus(Long id, boolean active);
+
+    Company getCompanyByUsername(String username);
+
+    Company updateCompany(String username, Company updatedCompany);
+}

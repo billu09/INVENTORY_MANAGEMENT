@@ -1,0 +1,122 @@
+package com.demo.inventory.controller;
+
+import com.demo.inventory.model.User;
+import com.demo.inventory.service.CompanyService;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/company")
+@PreAuthorize("hasRole('COMPANY')")
+public class CompanyController {
+
+    private final CompanyService companyService;
+
+    public CompanyController(CompanyService companyService) {
+        this.companyService = companyService;
+    }
+
+    // ================= COMPANY ONLY =================
+
+    /**
+     * Get logged-in company profile
+     * Used by Company Profile page
+     */
+    @GetMapping("/profile")
+    public User getMyProfile(Authentication authentication) {
+        return companyService.getCompanyByUsername(authentication.getName());
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//package com.demo.inventory.controller;
+//
+//import com.demo.inventory.model.User;
+//import com.demo.inventory.service.CompanyService;
+//
+//import org.springframework.http.ResponseEntity;
+//import org.springframework.security.access.prepost.PreAuthorize;
+//import org.springframework.security.core.Authentication;
+//import org.springframework.web.bind.annotation.*;
+//
+//import java.util.List;
+//import java.util.Map;
+//
+//@RestController
+//@RequestMapping("/api")
+//public class CompanyController {
+//
+//    private final CompanyService companyService;
+//
+//    public CompanyController(CompanyService companyService) {
+//        this.companyService = companyService;
+//    }
+//
+//    // ================= ADMIN ONLY =================
+//
+//    /**
+//     * Get all registered companies (ROLE_COMPANY)
+//     * Used by CompaniesList & Admin Dashboard
+//     */
+//    @GetMapping("/admin/companies")
+//    @PreAuthorize("hasRole('ADMIN')")
+//    public List<User> getAllCompanies() {
+//        return companyService.getAllCompanies();
+//    }
+//
+//    /**
+//     * Activate / Deactivate a company (Admin only)
+//     */
+//    @PatchMapping("/admin/companies/{id}/status")
+//    @PreAuthorize("hasRole('ADMIN')")
+//    public ResponseEntity<?> updateCompanyStatus(
+//            @PathVariable Long id,
+//            @RequestBody Map<String, Boolean> body) {
+//
+//        Boolean active = body.get("active");
+//        if (active == null) {
+//            return ResponseEntity.badRequest()
+//                    .body(Map.of("error", "active field is required"));
+//        }
+//
+//        User updated = companyService.updateStatus(id, active);
+//        return ResponseEntity.ok(updated);
+//    }
+//
+//    // ================= COMPANY ONLY =================
+//
+//    /**
+//     * Get logged-in company profile
+//     * Used by Profile page
+//     */
+//    @GetMapping("/companies/me")
+//    @PreAuthorize("hasRole('COMPANY')")
+//    public User getMyProfile(Authentication authentication) {
+//        return companyService.getCompanyByUsername(authentication.getName());
+//    }
+//}

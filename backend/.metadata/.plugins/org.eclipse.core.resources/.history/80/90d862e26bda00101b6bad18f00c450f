@@ -1,0 +1,150 @@
+package com.demo.inventory.config;
+
+import com.demo.inventory.security.JwtAuthFilter;
+import com.demo.inventory.security.JwtUtil;
+
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtUtil jwtUtil;
+    private final AuthenticationConfiguration authenticationConfiguration;
+
+    public SecurityConfig(
+            JwtUtil jwtUtil,
+            AuthenticationConfiguration authenticationConfiguration
+    ) {
+        this.jwtUtil = jwtUtil;
+        this.authenticationConfiguration = authenticationConfiguration;
+    }
+
+    // ================= JWT FILTER =================
+    @Bean
+    public JwtAuthFilter jwtAuthFilter() {
+        return new JwtAuthFilter(jwtUtil);
+    }
+
+    // ================= SECURITY FILTER CHAIN =================
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        http
+            // CORS for React
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+            // JWT based → no CSRF
+            .csrf(csrf -> csrf.disable())
+
+            // Stateless
+            .sessionManagement(sm ->
+                sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // Authorization
+            .authorizeHttpRequests(auth -> auth
+
+                // ===== PUBLIC =====
+                .requestMatchers(
+                    "/api/auth/**",
+                    "/api/companies/register",
+                    "/actuator/health",
+                    "/h2-console/**"
+                ).permitAll()
+
+                // ===== ADMIN ONLY =====
+                .requestMatchers("/api/admin/**")
+                .hasRole("ADMIN")
+
+                // ===== AUTHENTICATED (COMPANY / ADMIN) =====
+                .requestMatchers("/api/**")
+                .authenticated()
+
+                // ===== FRONTEND ROUTES (React SPA) =====
+                .requestMatchers(
+                    "/",
+                    "/login",
+                    "/dashboard",
+                    "/profile",
+                    "/products",
+                    "/categories/**",
+                    "/sales",
+                    "/purchase",
+                    "/companies/**",
+                    "/activity-logs"
+                ).permitAll()
+
+                .anyRequest().denyAll()
+            )
+
+            // Return 401 instead of redirect
+            .exceptionHandling(e ->
+                e.authenticationEntryPoint(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                )
+            )
+
+            // Disable default auth
+            .httpBasic(basic -> basic.disable())
+            .formLogin(form -> form.disable())
+
+            // JWT Filter
+            .addFilterBefore(
+                jwtAuthFilter(),
+                UsernamePasswordAuthenticationFilter.class
+            );
+
+        // Allow H2 console frames
+        http.headers(headers ->
+            headers.frameOptions(frame -> frame.sameOrigin())
+        );
+
+        return http.build();
+    }
+
+    // ================= CORS =================
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedMethods(
+            List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+        );
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    // ================= PASSWORD ENCODER =================
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // ================= AUTH MANAGER =================
+    @Bean
+    public AuthenticationManager authenticationManager() throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+}

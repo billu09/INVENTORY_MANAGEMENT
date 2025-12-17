@@ -1,0 +1,375 @@
+package com.demo.inventory.config;
+
+import com.demo.inventory.security.JwtAuthFilter;
+import com.demo.inventory.security.JwtUtil;
+
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtUtil jwtUtil;
+    private final AuthenticationConfiguration authenticationConfiguration;
+
+    public SecurityConfig(JwtUtil jwtUtil,
+                          AuthenticationConfiguration authenticationConfiguration) {
+        this.jwtUtil = jwtUtil;
+        this.authenticationConfiguration = authenticationConfiguration;
+    }
+
+    // ================= JWT FILTER =================
+    @Bean
+    public JwtAuthFilter jwtAuthFilter() {
+        return new JwtAuthFilter(jwtUtil);
+    }
+
+    // ================= SECURITY FILTER CHAIN =================
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        http
+            // Enable CORS for React
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+            // Disable CSRF (JWT based)
+            .csrf(csrf -> csrf.disable())
+
+            // Stateless session (JWT)
+            .sessionManagement(sm ->
+                sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // Authorization rules
+            .authorizeHttpRequests(auth -> auth
+
+                // ---------- PUBLIC APIs ----------
+                .requestMatchers(
+                    "/api/auth/**",
+                    "/api/companies/register",
+                    "/api/public/**",
+                    "/actuator/health",
+                    "/h2-console/**"
+                ).permitAll()
+
+                // ---------- ADMIN ONLY ----------
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                // ---------- ALL OTHER APIs ----------
+                .requestMatchers("/api/**").authenticated()
+
+                // ---------- STATIC FILES (optional) ----------
+                .requestMatchers(
+                    "/",
+                    "/index.html",
+                    "/favicon.ico",
+                    "/css/**",
+                    "/js/**",
+                    "/images/**",
+                    "/webjars/**"
+                ).permitAll()
+
+                .anyRequest().denyAll()
+            )
+
+            // Return 401 instead of redirect
+            .exceptionHandling(e ->
+                e.authenticationEntryPoint(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                )
+            )
+
+            // Disable default login mechanisms
+            .httpBasic(basic -> basic.disable())
+            .formLogin(form -> form.disable())
+
+            // Register JWT filter
+            .addFilterBefore(jwtAuthFilter(),
+                UsernamePasswordAuthenticationFilter.class
+            );
+
+        // Allow H2 console frames
+        http.headers(headers ->
+            headers.frameOptions(frame -> frame.sameOrigin())
+        );
+
+        return http.build();
+    }
+
+    // ================= CORS CONFIG =================
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedMethods(
+            List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+        );
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    // ================= PASSWORD ENCODER =================
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // ================= AUTH MANAGER =================
+    @Bean
+    public AuthenticationManager authenticationManager()
+            throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+}
+
+
+
+
+
+//package com.demo.inventory.config;
+//
+//import com.demo.inventory.security.JwtAuthFilter; // or JwtFilter if that's your class name
+//import com.demo.inventory.security.JwtUtil;
+//
+//import java.util.List;
+//
+//import org.springframework.context.annotation.Bean;
+//import org.springframework.context.annotation.Configuration;
+//import org.springframework.security.authentication.AuthenticationManager;
+//import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+//import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+//import org.springframework.security.config.http.SessionCreationPolicy;
+//import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+//import org.springframework.security.crypto.password.PasswordEncoder;
+//import org.springframework.security.web.SecurityFilterChain;
+//import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+//import org.springframework.web.cors.CorsConfiguration;
+//import org.springframework.web.cors.CorsConfigurationSource;
+//import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+//import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+//import org.springframework.http.HttpStatus;
+//
+//@Configuration
+//public class SecurityConfig {
+//
+//    private final JwtUtil jwtUtil;
+//    private final AuthenticationConfiguration authenticationConfiguration;
+//
+//    public SecurityConfig(JwtUtil jwtUtil, AuthenticationConfiguration authenticationConfiguration) {
+//        this.jwtUtil = jwtUtil;
+//        this.authenticationConfiguration = authenticationConfiguration;
+//    }
+//
+//    @Bean
+//    public JwtAuthFilter jwtAuthFilter() {
+//        // If your filter needs other dependencies, inject them via constructor
+//        return new JwtAuthFilter(jwtUtil);
+//    }
+//
+//    @Bean
+//  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+//    	http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+//
+//          .csrf(csrf -> csrf.disable())
+//          .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//          .authorizeHttpRequests(auth -> auth
+//              // permit API endpoints that should stay public
+//              .requestMatchers("/api/auth/**", "/api/public/**", "/h2-console/**", "/actuator/health", "/dev/**").permitAll()
+//
+//              // permit static UI (important!)
+//              .requestMatchers(
+//                  "/", 
+//                  "/access.html",
+//                  "/admin-login.html",
+//                  "/company-access.html",
+//                  "/index.html",
+//                  "/favicon.ico",
+//                  "/css/**",
+//                  "/js/**",
+//                  "/images/**",
+//                  "/webjars/**"
+//              ).permitAll()
+//
+//              .anyRequest().authenticated()
+//          )
+//          // if anonymous tries to access a protected resource return 401 (not redirect)
+//          .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+//          // disable built-in login prompts for APIs
+//          .httpBasic(basic -> basic.disable())
+//          .formLogin(form -> form.disable())
+//          // register JWT filter before username/password filter
+//          .addFilterBefore(jwtAuthFilter(), UsernamePasswordAuthenticationFilter.class);
+//
+//      // allow frames for H2 console
+//      http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+//
+//      return http.build();
+//  }
+//    
+////    @Bean
+////    public CorsConfigurationSource corsConfigurationSource() {
+////
+////        CorsConfiguration config = new CorsConfiguration();
+////        config.setAllowedOrigins(List.of("http://localhost:5173"));
+////        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+////        config.setAllowedHeaders(List.of("*"));
+////        config.setAllowCredentials(true);
+////
+////        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+////        
+////        // apply to all endpoints
+////        source.registerCorsConfiguration("/**", config);
+////        return source;
+////    }
+//    
+//    @Bean
+//    public CorsConfigurationSource corsConfigurationSource() {
+//        CorsConfiguration config = new CorsConfiguration();
+//        config.setAllowedOrigins(List.of("http://localhost:5173"));
+//        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
+//        config.setAllowedHeaders(List.of("*"));
+//        config.setAllowCredentials(true);
+//
+//        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+//        source.registerCorsConfiguration("/**", config);
+//        return source;
+//    }
+//
+//
+//    @Bean
+//    public PasswordEncoder passwordEncoder() {
+//        return new BCryptPasswordEncoder();
+//    }
+//
+//    // expose AuthenticationManager if you need to authenticate programmatically
+//    @Bean
+//    public AuthenticationManager authenticationManagerBean() throws Exception {
+//        return authenticationConfiguration.getAuthenticationManager();
+//    }
+//}
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+////package com.demo.inventory.config;
+////
+////import com.demo.inventory.security.JwtAuthFilter;
+////import com.demo.inventory.security.JwtUtil;
+////import org.springframework.context.annotation.Bean;
+////import org.springframework.context.annotation.Configuration;
+////import org.springframework.security.authentication.AuthenticationManager;
+////import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+////import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+////import org.springframework.security.config.http.SessionCreationPolicy;
+////import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+////import org.springframework.security.crypto.password.PasswordEncoder;
+////import org.springframework.security.web.SecurityFilterChain;
+////import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+////import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+////import org.springframework.http.HttpStatus;
+////
+////@Configuration
+////public class SecurityConfig {
+////
+////    private final JwtUtil jwtUtil;
+////
+////    public SecurityConfig(JwtUtil jwtUtil) {
+////        this.jwtUtil = jwtUtil;
+////    }
+////
+////    @Bean
+////    public JwtAuthFilter jwtAuthFilter() {
+////        return new JwtAuthFilter(jwtUtil);
+////    }
+////
+////    @Bean
+////    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+////        http
+////            .csrf(csrf -> csrf.disable())
+////            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+////            .authorizeHttpRequests(auth -> auth
+////                // permit API endpoints that should stay public
+////                .requestMatchers("/api/auth/**", "/api/public/**", "/h2-console/**", "/actuator/health", "/dev/**").permitAll()
+////
+////                // permit static UI (important!)
+////                .requestMatchers(
+////                    "/", 
+////                    "/access.html",
+////                    "/admin-login.html",
+////                    "/company-access.html",
+////                    "/index.html",
+////                    "/favicon.ico",
+////                    "/css/**",
+////                    "/js/**",
+////                    "/images/**",
+////                    "/webjars/**"
+////                ).permitAll()
+////
+////                .anyRequest().authenticated()
+////            )
+////            // if anonymous tries to access a protected resource return 401 (not redirect)
+////            .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+////            // disable built-in login prompts for APIs
+////            .httpBasic(basic -> basic.disable())
+////            .formLogin(form -> form.disable())
+////            // register JWT filter before username/password filter
+////            .addFilterBefore(jwtAuthFilter(), UsernamePasswordAuthenticationFilter.class);
+////
+////        // allow frames for H2 console
+////        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+////
+////        return http.build();
+////    }
+////
+////    @Bean
+////    public PasswordEncoder passwordEncoder() {
+////        return new BCryptPasswordEncoder();
+////    }
+////
+////    @Bean
+////    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+////        return config.getAuthenticationManager();
+////    }
+////}

@@ -1,0 +1,45 @@
+package com.demo.inventory.controller;
+
+import com.demo.inventory.model.User;
+import com.demo.inventory.service.CompanyService;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+public class CompanyController {
+
+    private final CompanyService companyService;
+
+    public CompanyController(CompanyService companyService) {
+        this.companyService = companyService;
+    }
+
+    // ================= ADMIN ONLY =================
+
+    /**
+     * Get all companies (Admin only)
+     * Used by CompaniesList & Admin Dashboard
+     */
+    @GetMapping("/admin/companies")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<User> getAllCompanies() {
+        return companyService.getAllCompanies();
+    }
+
+    // ================= COMPANY ONLY =================
+
+    /**
+     * Get own profile (Company)
+     * Used by Profile page
+     */
+    @GetMapping("/companies/me")
+    @PreAuthorize("hasRole('COMPANY')")
+    public User getMyProfile(Authentication authentication) {
+        return companyService.getCompanyByUsername(authentication.getName());
+    }
+}
